@@ -31,7 +31,7 @@
         <!-- Header -->
         <header class="flex flex-col md:flex-row md:items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <div>
-                <h1 class="text-2xl md:text-3xl font-bold text-gray-900">우리 동네 아파트 실거래가 대시보드</h1>
+                <h1 class="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500">우리 동네 아파트 실거래가 대시보드</h1>
                 <p class="text-gray-500 mt-1 text-sm md:text-base">구글 시트 실시간 연동 데이터</p>
             </div>
             <div class="mt-4 md:mt-0 text-sm text-gray-500 flex items-center gap-2">
@@ -45,7 +45,7 @@
 
         <!-- Loading Spinner -->
         <div id="loading" class="flex justify-center items-center py-20">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
             <span class="ml-3 text-gray-600 font-medium">데이터를 불러오는 중입니다...</span>
         </div>
 
@@ -61,22 +61,22 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
                     <p class="text-gray-500 text-sm font-medium">전체 거래 건수</p>
-                    <p class="text-3xl font-bold text-gray-900 mt-2" id="total-count">-</p>
+                    <p class="text-3xl font-bold text-red-500 mt-2" id="total-count">-</p>
                     <p class="text-xs text-gray-400 mt-1">건</p>
                 </div>
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
                     <p class="text-gray-500 text-sm font-medium">평균 거래가격</p>
-                    <p class="text-3xl font-bold text-blue-600 mt-2" id="avg-price">-</p>
+                    <p class="text-3xl font-bold text-orange-500 mt-2" id="avg-price">-</p>
                     <p class="text-xs text-gray-400 mt-1">만원</p>
                 </div>
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
                     <p class="text-gray-500 text-sm font-medium">최고 거래가격</p>
-                    <p class="text-3xl font-bold text-red-500 mt-2" id="max-price">-</p>
+                    <p class="text-3xl font-bold text-blue-500 mt-2" id="max-price">-</p>
                     <p class="text-xs text-gray-400 mt-1">만원</p>
                 </div>
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
                     <p class="text-gray-500 text-sm font-medium">최저 거래가격</p>
-                    <p class="text-3xl font-bold text-green-500 mt-2" id="min-price">-</p>
+                    <p class="text-3xl font-bold text-purple-500 mt-2" id="min-price">-</p>
                     <p class="text-xs text-gray-400 mt-1">만원</p>
                 </div>
             </div>
@@ -254,11 +254,11 @@
                     datasets: [{
                         label: '월별 평균 거래금액 (만원)',
                         data: data,
-                        borderColor: '#2563eb', // blue-600
-                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        borderColor: '#16a34a', // green-600
+                        backgroundColor: 'rgba(22, 163, 74, 0.1)',
                         borderWidth: 2,
                         pointBackgroundColor: '#ffffff',
-                        pointBorderColor: '#2563eb',
+                        pointBorderColor: '#16a34a',
                         pointBorderWidth: 2,
                         pointRadius: 4,
                         fill: true,
@@ -319,7 +319,7 @@
                 if (index % 2 === 0) tr.classList.add('bg-white');
                 else tr.classList.add('bg-gray-50');
                 
-                tr.classList.add('hover:bg-blue-50', 'transition-colors', 'duration-150');
+                tr.classList.add('hover:bg-green-50', 'transition-colors', 'duration-150');
 
                 tr.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${item.date}</td>
@@ -328,7 +328,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">${item.area}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">${item.floor}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">${item.year}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600 text-right">${formatNumber(item.price)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600 text-right">${formatNumber(item.price)}</td>
                 `;
                 tbodyEl.appendChild(tr);
             });
