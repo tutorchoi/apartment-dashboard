@@ -57,6 +57,16 @@
         <!-- Dashboard Content (Hidden initially) -->
         <div id="dashboard-content" class="hidden space-y-6">
             
+            <!-- Filters -->
+            <div class="flex justify-end">
+                <div class="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+                    <label for="dong-filter" class="text-sm font-medium text-gray-700">법정동 선택</label>
+                    <select id="dong-filter" class="border-gray-300 rounded-md text-gray-700 text-sm focus:ring-green-500 focus:border-green-500 p-1.5 outline-none bg-gray-50 cursor-pointer min-w-[120px]">
+                        <option value="all">전체</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- Summary Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
@@ -125,8 +135,10 @@
         const errorEl = document.getElementById('error-message');
         const dashboardEl = document.getElementById('dashboard-content');
         const tbodyEl = document.getElementById('table-body');
+        const dongFilterEl = document.getElementById('dong-filter');
         
         let chartInstance = null;
+        let allData = [];
 
         // Number formatter
         const formatNumber = (num) => new Intl.NumberFormat('ko-KR').format(num);
@@ -156,13 +168,8 @@
         }
 
         function processData(rawData) {
-            let totalCount = 0;
-            let totalPrice = 0;
-            let maxPrice = -Infinity;
-            let minPrice = Infinity;
-            
-            const monthlyData = {};
             const cleanData = [];
+            const dongs = new Set();
 
             // Find correct keys by ignoring spaces or slight differences
             const getVal = (row, keyPart) => {
@@ -197,22 +204,77 @@
                 const item = { date: normDate, month: monthKey, name, dong, area, floor, year, price };
                 cleanData.push(item);
 
-                // Update Stats
-                totalCount++;
-                totalPrice += price;
-                if (price > maxPrice) maxPrice = price;
-                if (price < minPrice) minPrice = price;
-
-                // Update Monthly Data for Chart
-                if (!monthlyData[monthKey]) {
-                    monthlyData[monthKey] = { sum: 0, count: 0 };
+                // Collect unique dong names
+                if (dong) {
+                    dongs.add(dong);
                 }
-                monthlyData[monthKey].sum += price;
-                monthlyData[monthKey].count += 1;
             });
 
             if (cleanData.length === 0) {
                 showError("유효한 데이터가 없습니다. CSV 컬럼명(거래일자, 거래금액 등)을 확인해주세요.");
+                return;
+            }
+
+            allData = cleanData;
+
+            // Populate Dropdown
+            Array.from(dongs).sort().forEach(dong => {
+                const option = document.createElement('option');
+                option.value = dong;
+                option.text = dong;
+                dongFilterEl.appendChild(option);
+            });
+
+            // Initial render with all data
+            updateDashboard(allData);
+
+            // Show Dashboard
+            loadingEl.classList.add('hidden');
+            dashboardEl.classList.remove('hidden');
+        }
+
+        // Filter Event Listener
+        dongFilterEl.addEventListener('change', (e) => {
+            const selectedDong = e.target.value;
+            if (selectedDong === 'all') {
+                updateDashboard(allData);
+            } else {
+                const filteredData = allData.filter(item => item.dong === selectedDong);
+                updateDashboard(filteredData);
+            }
+        });
+
+        function updateDashboard(data) {
+            let totalCount = 0;
+            let totalPrice = 0;
+            let maxPrice = -Infinity;
+            let minPrice = Infinity;
+            
+            const monthlyData = {};
+
+            data.forEach(item => {
+                // Update Stats
+                totalCount++;
+                totalPrice += item.price;
+                if (item.price > maxPrice) maxPrice = item.price;
+                if (item.price < minPrice) minPrice = item.price;
+
+                // Update Monthly Data for Chart
+                if (!monthlyData[item.month]) {
+                    monthlyData[item.month] = { sum: 0, count: 0 };
+                }
+                monthlyData[item.month].sum += item.price;
+                monthlyData[item.month].count += 1;
+            });
+
+            // If no data for the selected filter (edge case), reset UI
+            if (totalCount === 0) {
+                document.getElementById('total-count').innerText = "0";
+                document.getElementById('avg-price').innerText = "0";
+                document.getElementById('max-price').innerText = "0";
+                document.getElementById('min-price').innerText = "0";
+                renderChart([], []);
+                renderTable([]);
                 return;
             }
 
@@ -231,13 +293,9 @@
 
             renderChart(labels, avgPrices);
 
-            // Sort data by date descending for the table
-            cleanData.sort((a, b) => b.date.localeCompare(a.date));
-            renderTable(cleanData);
-
-            // Show Dashboard
-            loadingEl.classList.add('hidden');
-            dashboardEl.classList.remove('hidden');
+            // Sort data by date descending for the table (clone array to avoid mutating original)
+            const sortedData = [...data].sort((a, b) => b.date.localeCompare(a.date));
+            renderTable(sortedData);
         }
 
         function renderChart(labels, data) {
