@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리 동네 아파트 실거래가 대시보드</title>
+    
+    <!-- Tailwind CSS (for styling) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js (for charts) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- PapaParse (for robust CSV parsing) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <style>
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; }
+        .table-container { max-height: 500px; overflow-y: auto; }
+        /* 스크롤바 커스텀 */
+        .table-container::-webkit-scrollbar { width: 8px; height: 8px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .table-container::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900">우리 동네 아파트 실거래가 대시보드</h1>
+                <p class="text-gray-500 mt-1 text-sm md:text-base">구글 시트 실시간 연동 데이터</p>
+            </div>
+            <div class="mt-4 md:mt-0 text-sm text-gray-500 flex items-center gap-2">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                데이터 연동 완료
+            </div>
+        </header>
+
+        <!-- Loading Spinner -->
+        <div id="loading" class="flex justify-center items-center py-20">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <span class="ml-3 text-gray-600 font-medium">데이터를 불러오는 중입니다...</span>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-message" class="hidden bg-red-50 text-red-600 p-4 rounded-lg border border-red-200">
+            데이터를 불러오는데 실패했습니다. URL을 다시 확인해주세요.
+        </div>
+
+        <!-- Dashboard Content (Hidden initially) -->
+        <div id="dashboard-content" class="hidden space-y-6">
+            
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
+                    <p class="text-gray-500 text-sm font-medium">전체 거래 건수</p>
+                    <p class="text-3xl font-bold text-gray-900 mt-2" id="total-count">-</p>
+                    <p class="text-xs text-gray-400 mt-1">건</p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
+                    <p class="text-gray-500 text-sm font-medium">평균 거래가격</p>
+                    <p class="text-3xl font-bold text-blue-600 mt-2" id="avg-price">-</p>
+                    <p class="text-xs text-gray-400 mt-1">만원</p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
+                    <p class="text-gray-500 text-sm font-medium">최고 거래가격</p>
+                    <p class="text-3xl font-bold text-red-500 mt-2" id="max-price">-</p>
+                    <p class="text-xs text-gray-400 mt-1">만원</p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
+                    <p class="text-gray-500 text-sm font-medium">최저 거래가격</p>
+                    <p class="text-3xl font-bold text-green-500 mt-2" id="min-price">-</p>
+                    <p class="text-xs text-gray-400 mt-1">만원</p>
+                </div>
+            </div>
+
+            <!-- Chart Section -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">월별 평균 거래가격 추이</h2>
+                <div class="relative h-72 w-full">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="p-6 border-b border-gray-100">
+                    <h2 class="text-lg font-bold text-gray-900">최근 실거래 목록</h2>
+                </div>
+                <div class="table-container">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 sticky top-0 z-10">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">거래일자</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">법정동</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">아파트명</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">전용면적(㎡)</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">층</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">건축년도</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">거래금액(만원)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Rows will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRK90EC8tPoFteKUDGhUnhCnibWvpDMifuT4GPknHWe2ifEMWy8TZLU6ChYa0q8TuETu9n6edb8H7BU/pub?gid=2135264418&single=true&output=csv";
+
+        // DOM Elements
+        const loadingEl = document.getElementById('loading');
+        const errorEl = document.getElementById('error-message');
+        const dashboardEl = document.getElementById('dashboard-content');
+        const tbodyEl = document.getElementById('table-body');
+        
+        let chartInstance = null;
+
+        // Number formatter
+        const formatNumber = (num) => new Intl.NumberFormat('ko-KR').format(num);
+
+        async function init() {
+            try {
+                // Fetch the CSV data
+                const response = await fetch(CSV_URL);
+                if (!response.ok) throw new Error("Network response was not ok");
+                
+                const csvText = await response.text();
+                
+                // Parse CSV using PapaParse
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        processData(results.data);
+                    },
+                    error: function(err) {
+                        showError(err.message);
+                    }
+                });
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        function processData(rawData) {
+            let totalCount = 0;
+            let totalPrice = 0;
+            let maxPrice = -Infinity;
+            let minPrice = Infinity;
+            
+            const monthlyData = {};
+            const cleanData = [];
+
+            // Find correct keys by ignoring spaces or slight differences
+            const getVal = (row, keyPart) => {
+                const key = Object.keys(row).find(k => k.replace(/\s+/g, '').includes(keyPart));
+                return key ? row[key] : '';
+            };
+
+            rawData.forEach(row => {
+                const dateStr = getVal(row, '거래일자');
+                const name = getVal(row, '아파트명');
+                const dong = getVal(row, '법정동');
+                const area = getVal(row, '전용면적');
+                const floor = getVal(row, '층');
+                const year = getVal(row, '건축년도');
+                
+                // Parse price (remove commas, handle empty)
+                const priceStr = getVal(row, '거래금액');
+                const price = parseInt((priceStr || '0').replace(/,/g, ''), 10);
+
+                if (!dateStr || isNaN(price) || price === 0) return;
+
+                // Format Date for table (Assuming YYYY-MM-DD or YYYYMMDD formats)
+                // Normalize date string (replace . or / with -)
+                let normDate = dateStr.replace(/[\.\/]/g, '-').trim();
+                
+                // Extract YYYY-MM for the chart grouping
+                let monthKey = 'Unknown';
+                if(normDate.length >= 7) {
+                    monthKey = normDate.substring(0, 7);
+                }
+
+                const item = { date: normDate, month: monthKey, name, dong, area, floor, year, price };
+                cleanData.push(item);
+
+                // Update Stats
+                totalCount++;
+                totalPrice += price;
+                if (price > maxPrice) maxPrice = price;
+                if (price < minPrice) minPrice = price;
+
+                // Update Monthly Data for Chart
+                if (!monthlyData[monthKey]) {
+                    monthlyData[monthKey] = { sum: 0, count: 0 };
+                }
+                monthlyData[monthKey].sum += price;
+                monthlyData[monthKey].count += 1;
+            });
+
+            if (cleanData.length === 0) {
+                showError("유효한 데이터가 없습니다. CSV 컬럼명(거래일자, 거래금액 등)을 확인해주세요.");
+                return;
+            }
+
+            // Calculate Averages
+            const avgPrice = Math.round(totalPrice / totalCount);
+
+            // Update DOM Summary
+            document.getElementById('total-count').innerText = formatNumber(totalCount);
+            document.getElementById('avg-price').innerText = formatNumber(avgPrice);
+            document.getElementById('max-price').innerText = formatNumber(maxPrice);
+            document.getElementById('min-price').innerText = formatNumber(minPrice);
+
+            // Prepare Chart Data
+            const labels = Object.keys(monthlyData).sort();
+            const avgPrices = labels.map(label => Math.round(monthlyData[label].sum / monthlyData[label].count));
+
+            renderChart(labels, avgPrices);
+
+            // Sort data by date descending for the table
+            cleanData.sort((a, b) => b.date.localeCompare(a.date));
+            renderTable(cleanData);
+
+            // Show Dashboard
+            loadingEl.classList.add('hidden');
+            dashboardEl.classList.remove('hidden');
+        }
+
+        function renderChart(labels, data) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            
+            if(chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '월별 평균 거래금액 (만원)',
+                        data: data,
+                        borderColor: '#2563eb', // blue-600
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#2563eb',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return formatNumber(context.parsed.y) + ' 만원';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: {
+                                color: '#f1f5f9', // slate-100
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return formatNumber(value);
+                                },
+                                font: {
+                                    family: "'Pretendard', sans-serif"
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                font: {
+                                    family: "'Pretendard', sans-serif"
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTable(data) {
+            tbodyEl.innerHTML = '';
+            
+            data.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                // Zebra striping
+                if (index % 2 === 0) tr.classList.add('bg-white');
+                else tr.classList.add('bg-gray-50');
+                
+                tr.classList.add('hover:bg-blue-50', 'transition-colors', 'duration-150');
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${item.date}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.dong}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">${item.area}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">${item.floor}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">${item.year}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600 text-right">${formatNumber(item.price)}</td>
+                `;
+                tbodyEl.appendChild(tr);
+            });
+        }
+
+        function showError(msg) {
+            loadingEl.classList.add('hidden');
+            errorEl.classList.remove('hidden');
+            if(msg) {
+                errorEl.innerText = `데이터를 불러오는데 실패했습니다: ${msg}`;
+            }
+        }
+
+        // Start fetching data when page loads
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
