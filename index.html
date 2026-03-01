@@ -91,11 +91,28 @@
                 </div>
             </div>
 
-            <!-- Chart Section -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-bold text-gray-900 mb-4">월별 평균 거래가격 추이</h2>
-                <div class="relative h-72 w-full">
-                    <canvas id="priceChart"></canvas>
+            <!-- Chart & Top 5 Section (Grid Layout) -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Chart Section -->
+                <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                    <h2 class="text-lg font-bold text-gray-900 mb-4">월별 평균 거래가격 추이</h2>
+                    <div class="relative flex-grow min-h-[288px] w-full">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Top 5 Expensive Apartments Section -->
+                <div class="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                    <div class="p-6 border-b border-gray-100 bg-gray-50/50">
+                        <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <span>🏆</span> 우리 동네 비싼 아파트 TOP 5
+                        </h2>
+                    </div>
+                    <div class="flex-grow overflow-y-auto">
+                        <ul id="top5-list" class="divide-y divide-gray-100">
+                            <!-- Top 5 items will be populated here -->
+                        </ul>
+                    </div>
                 </div>
             </div>
 
@@ -136,6 +153,7 @@
         const dashboardEl = document.getElementById('dashboard-content');
         const tbodyEl = document.getElementById('table-body');
         const dongFilterEl = document.getElementById('dong-filter');
+        const top5ListEl = document.getElementById('top5-list');
         
         let chartInstance = null;
         let allData = [];
@@ -274,6 +292,7 @@
                 document.getElementById('max-price').innerText = "0";
                 document.getElementById('min-price').innerText = "0";
                 renderChart([], []);
+                renderTop5([]);
                 renderTable([]);
                 return;
             }
@@ -293,9 +312,61 @@
 
             renderChart(labels, avgPrices);
 
+            // Top 5 Calculation (Sort by price descending, take top 5)
+            const top5Data = [...data].sort((a, b) => b.price - a.price).slice(0, 5);
+            renderTop5(top5Data);
+
             // Sort data by date descending for the table (clone array to avoid mutating original)
             const sortedData = [...data].sort((a, b) => b.date.localeCompare(a.date));
             renderTable(sortedData);
+        }
+
+        function renderTop5(data) {
+            top5ListEl.innerHTML = '';
+            
+            if (data.length === 0) {
+                top5ListEl.innerHTML = '<li class="p-6 text-center text-gray-500 text-sm">해당 조건에 데이터가 없습니다.</li>';
+                return;
+            }
+
+            data.forEach((item, index) => {
+                const rank = index + 1;
+                let rankStyle = '';
+                let rankIcon = '';
+
+                if (rank === 1) {
+                    rankStyle = 'bg-yellow-400 text-yellow-900 shadow-md'; // Gold
+                    rankIcon = '🥇';
+                } else if (rank === 2) {
+                    rankStyle = 'bg-gray-300 text-gray-800 shadow-sm'; // Silver
+                    rankIcon = '🥈';
+                } else if (rank === 3) {
+                    rankStyle = 'bg-amber-600 text-white shadow-sm'; // Bronze
+                    rankIcon = '🥉';
+                } else {
+                    rankStyle = 'bg-gray-100 text-gray-500'; // 4th, 5th
+                    rankIcon = `<span class="text-sm">${rank}</span>`;
+                }
+
+                const li = document.createElement('li');
+                li.className = 'p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-green-50 transition-colors border-l-4 border-transparent hover:border-green-500';
+                
+                li.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full font-bold ${rankStyle}">
+                            ${rankIcon}
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-gray-900 line-clamp-1">${item.name}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">${item.dong} | ${item.area}㎡ | ${item.floor}</p>
+                        </div>
+                    </div>
+                    <div class="sm:text-right ml-11 sm:ml-0">
+                        <p class="text-base font-bold text-red-600">${formatNumber(item.price)}<span class="text-xs font-normal text-gray-500 ml-1">만원</span></p>
+                    </div>
+                `;
+                top5ListEl.appendChild(li);
+            });
         }
 
         function renderChart(labels, data) {
